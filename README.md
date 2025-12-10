@@ -1,18 +1,33 @@
 # MPVonCrack
+
 Upscales✅ 
+
 Frame Interpolation✅ 
+
 Images✅
+
 Upscale Images✅ (Needs abit work on the downscale script)
+
 Real Derbid✅ 
+
 .strm Bulk✅ 
+
 Links✅ 
+
 ESERGAN✅ 
+
 CUGAN✅ 
+
 Anime4K✅ 
+
 Works with MPV Shim✅ 
+
 HDR✅ 
+
 SDR✅ 
+
 Hotkeys✅
+
 Scroll-wheel Navigation✅
 
 This has bunch of script combined for personal configuration. Most groundwork is from LazyMPV, with some other external scripts credit goes to all those people. 
