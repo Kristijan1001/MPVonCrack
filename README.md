@@ -35,7 +35,9 @@ There are a lot of custom scripts i made. For Example you can double click a tor
 
 Yes it does need for you to be a bit tech savy, i doubt i will update this in future.
 
-For Real Derbid you need to add your API in the torrent-handler.lua in the Portable_config/Scripts wolder.
+For Real Derbid you need to add your API in the torrent-handler.lua in the Portable_config/Scripts folder.
+
+I suggest using the combos found in the right click menu or their combos for easiest use.
 
 Video Below of some cool features:
 
