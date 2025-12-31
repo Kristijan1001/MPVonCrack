@@ -41,6 +41,3 @@ For Real Derbid you need to add your API in the torrent-handler.lua in the Porta
 
 I suggest using the combos found in the right click menu or their combos for easiest use.
 
-Video Below of some cool features:
-
-https://streamable.com/sbgwtw
