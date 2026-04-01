@@ -5,7 +5,7 @@ local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 
 -- ===== CONFIGURATION =====
-local RD_API = "YOUR API HERE"
+local RD_API = "APIHERE"
 local EXTENSIONS = {
     -- Video Formats
     ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v", 
