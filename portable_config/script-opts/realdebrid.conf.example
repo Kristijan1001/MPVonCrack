@@ -1,0 +1,17 @@
+# ── Real-Debrid API token ─────────────────────────────────────────────────
+#
+# 1. Copy this file to  realdebrid.conf  (same folder, drop the .example)
+# 2. Paste your token below
+# 3. Restart mpv
+#
+# Get your token here (must be logged in):  https://real-debrid.com/apitoken
+#
+# realdebrid.conf is in .gitignore, so your token never gets committed.
+# You can also skip the file entirely and set a REALDEBRID_API_KEY
+# environment variable instead — the scripts check that as a fallback.
+#
+# Used by:
+#   scripts/Custom_Torrent_Real_Derbid_Streaming.lua   (.torrent files)
+#   scripts/Custom_Torrent_Magnet_Streaming.lua        (magnet links)
+
+api_key=YOUR_TOKEN_HERE
