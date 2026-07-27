@@ -12,24 +12,47 @@ Built on [hooke007's mpv_PlayKit / MPV_lazy](https://github.com/hooke007/MPV_laz
 
 ## ⬇️ Download
 
-### **[→ Grab the latest release here ←](https://github.com/Kristijan1001/MPVonCrack/releases/latest)**
+**The entire player is in this repo** — `mpv.exe`, `yt-dlp.exe`, the bundled Python, every plugin, every shader, every script, and all 56 AI models. No installer, nothing written to your registry, no dependencies to chase. It's fully portable; a USB stick is fine.
 
-It's a **portable build** — no installer, nothing written to your registry, no dependencies to chase. Unpack it and run `mpv.exe`.
+Pick one:
 
-**What's in the download:**
+### Option A — everything, one download *(easiest)*
 
-| ✅ Included | |
+### **[→ MPVonCrack-FULL ←](https://github.com/Kristijan1001/MPVonCrack/releases/latest)**
+
+The complete package **including the NVIDIA CUDA/TensorRT runtime**. Download all parts, extract, run `mpv.exe`. Nothing else to do — AI upscaling works immediately.
+
+It's split into `.7z.001`, `.7z.002` … because GitHub caps a single release file at 2 GB. **Download every part into the same folder**, then right-click the `.001` and extract — 7-Zip stitches them back together automatically. (Windows 11 opens `.7z` natively; otherwise grab [7-Zip](https://www.7-zip.org/).)
+
+### Option B — the repo, then add CUDA if you want it
+
+Clone or **Code → Download ZIP** this repo (~1.2 GB). That's the whole player minus the CUDA runtime.
+
+```bash
+git clone https://github.com/Kristijan1001/MPVonCrack.git
+```
+
+Playback, the right-click menu, GLSL shaders, torrent/magnet streaming, the Twitch/Kick chat overlay, PiP and VR **all work immediately**. Only the neural upscaling and RIFE interpolation need CUDA — grab **`MPVonCrack-vsmlrt-cuda.7z.001/.002`** from the [releases page](https://github.com/Kristijan1001/MPVonCrack/releases/latest), extract, and drop the `vsmlrt-cuda` folder into `vs-plugins/`.
+
+---
+
+### Why CUDA is a separate download
+
+Not a choice — a hard limit. GitHub **rejects any file over 100 MB** in a repo, and eleven of the CUDA DLLs blow straight past it:
+
+| File | Size |
 |---|---|
-| `mpv.exe` | The player itself, built with VapourSynth support |
-| `yt-dlp.exe` | For YouTube / Twitch / Kick / everything else |
-| Python + Pillow + numpy + websocket-client | **Bundled.** You don't install Python. You don't `pip install` anything. |
-| All 56 AI models (`.onnx`) | AnimeJaNai V2/V3, Real-ESRGAN, Real-CUGAN, ArtCNN, RIFE — all of them |
-| Every shader, script and config | The whole `portable_config` |
-| VapourSynth plugins | `vstrt`, `vsort`, denoise/deinterlace filters, madVR |
+| `cublasLt64_13.dll` | 458 MB |
+| `nvinfer_builder_resource_sm90_10.dll` | 428 MB |
+| `nvinfer_10.dll` | 356 MB |
+| `cufft64_12.dll` | 271 MB |
+| …and 7 more over 100 MB | |
 
-**One thing you add yourself** — the NVIDIA CUDA/TensorRT runtime (3.3 GB, and *only* if you want the AI upscaling). [Two-step instructions below.](#step-2--add-the-cuda-runtime-nvidia-ai-features-only) Everything else — playback, torrents, chat overlay, GLSL shaders — works the second you unzip.
+Release assets allow up to 2 GB each, so that's where it lives. It's also 3.2 GB of unmodified NVIDIA redistributables that AMD and Intel users can't use at all.
 
-> Why isn't CUDA in the bundle? It's 3.3 GB of unmodified NVIDIA redistributables that would triple the download for everyone, including the people on AMD who can't use it. It's one copy-paste from upstream.
+### Why `.engine` files aren't included either
+
+TensorRT compiles those for **one exact GPU, driver version and TensorRT version**. Mine total ~1.5 GB and would be dead weight on your machine — yours build themselves the first time you use a preset. [Details here.](#the-engine-files--why-the-first-run-is-slow)
 
 ---
 
