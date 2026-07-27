@@ -34,25 +34,7 @@ git clone https://github.com/Kristijan1001/MPVonCrack.git
 
 Playback, the right-click menu, GLSL shaders, torrent/magnet streaming, the Twitch/Kick chat overlay, PiP and VR **all work immediately**. Only the neural upscaling and RIFE interpolation need CUDA — grab **`MPVonCrack-vsmlrt-cuda.7z.001/.002`** from the [releases page](https://github.com/Kristijan1001/MPVonCrack/releases/latest), extract, and drop the `vsmlrt-cuda` folder into `vs-plugins/`.
 
----
-
-### Why CUDA is a separate download
-
-Not a choice — a hard limit. GitHub **rejects any file over 100 MB** in a repo, and eleven of the CUDA DLLs blow straight past it:
-
-| File | Size |
-|---|---|
-| `cublasLt64_13.dll` | 458 MB |
-| `nvinfer_builder_resource_sm90_10.dll` | 428 MB |
-| `nvinfer_10.dll` | 356 MB |
-| `cufft64_12.dll` | 271 MB |
-| …and 7 more over 100 MB | |
-
-Release assets allow up to 2 GB each, so that's where it lives. It's also 3.2 GB of unmodified NVIDIA redistributables that AMD and Intel users can't use at all.
-
-### Why `.engine` files aren't included either
-
-TensorRT compiles those for **one exact GPU, driver version and TensorRT version**. Mine total ~1.5 GB and would be dead weight on your machine — yours build themselves the first time you use a preset. [Details here.](#the-engine-files--why-the-first-run-is-slow)
+> **Heads up:** the first time you press an AI preset, mpv will look frozen for a few minutes while it builds itself a TensorRT engine for your GPU. That happens once per preset, then it's instant forever.
 
 ---
 
@@ -115,53 +97,17 @@ TensorRT compiles those for **one exact GPU, driver version and TensorRT version
 
 ## Setup
 
-### Step 1 — Unpack and run
+1. **Extract it anywhere** and run `mpv.exe`. A USB stick is fine — it's fully portable.
+2. **Right-click** for the menu. Every preset lives there.
+3. Want torrent streaming? [Add your Real-Debrid or TorBox token.](#debrid-setup--real-debrid--torbox)
 
-1. Download the release and extract it anywhere. A USB stick is fine — it's fully portable.
-2. Run `mpv.exe`.
-3. Right-click for the menu.
+That's the whole install. Playback, shaders, the chat overlay, PiP and VR work straight away; AI upscaling works too if you took the FULL download.
 
-That's it. Playback, the right-click menu, GLSL shaders, the chat overlay, PiP and VR all work now.
+**If you cloned the repo instead**, grab `MPVonCrack-vsmlrt-cuda.7z.001/.002` from [Releases](https://github.com/Kristijan1001/MPVonCrack/releases/latest), extract, and drop the `vsmlrt-cuda` folder into `vs-plugins/`. That's the only piece the repo doesn't carry.
 
-### Step 2 — Add the CUDA runtime *(NVIDIA AI features only)*
+### Already have your own mpv?
 
-Skip this if you're not going to use the neural upscaling or RIFE interpolation.
-
-1. Go to [**vs-mlrt releases**](https://github.com/AmusementClub/vs-mlrt/releases/latest).
-2. Download the archive with **`cuda`** in the filename (`vsmlrt-windows-x64-cuda…7z`). It's around 3.3 GB.
-3. Open it and copy the **`vsmlrt-cuda`** folder into the `vs-plugins` folder of your MPVonCrack install:
-
-   ```
-   MPVonCrack/
-   └── vs-plugins/
-       ├── vstrt.dll          ← already there
-       ├── models/            ← already there, models included
-       └── vsmlrt-cuda/       ← you add this folder
-   ```
-4. Restart mpv. Press `F1` on a video.
-
-> The first press of any AI preset will look like mpv has frozen for a few minutes. It hasn't — it's compiling a TensorRT engine for your specific GPU. This happens **once per preset**. [Full explanation here.](#the-engine-files--why-the-first-run-is-slow)
-
-### Step 3 — Real-Debrid token *(torrent/magnet streaming only)*
-
-See [the next section](#real-debrid-setup).
-
-### Alternative: config only
-
-Already have your own mpv + VapourSynth setup and just want the scripts and configs? Clone this repo and drop its `portable_config/` into your mpv folder, replacing yours. The models and CUDA runtime are on you.
-
-```bash
-git clone https://github.com/Kristijan1001/MPVonCrack.git
-```
-
-### What's *not* in the download
-
-| Excluded | Why |
-|---|---|
-| `vsmlrt-cuda/` (3.3 GB) | Unmodified NVIDIA redistributables. Step 2 above. |
-| `*.engine` (1.2 GB) | TensorRT engines are compiled for **one specific GPU, driver and TensorRT version**. Mine are useless on your machine, and yours build themselves automatically. |
-| `_cache/`, watch-later history, `saved-props.json` | My personal playback state — resume positions, cached Real-Debrid links, saved volume. Not yours to inherit. |
-| `script-opts/realdebrid.conf` | My API token. You add your own. |
+Take just `portable_config/` and drop it into your install, replacing yours. You'll need your own models and CUDA runtime.
 
 ---
 
