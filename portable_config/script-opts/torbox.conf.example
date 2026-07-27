@@ -1,0 +1,17 @@
+# ── TorBox API token ──────────────────────────────────────────────────────
+#
+# 1. Copy this file to  torbox.conf  (same folder, drop the .example)
+# 2. Paste your token below
+# 3. Set  provider=torbox  in debrid.conf (or use the right-click menu:
+#    Streaming > Switch Provider)
+# 4. Restart mpv
+#
+# Get your token here (must be logged in):  https://torbox.app/settings
+#
+# torbox.conf is in .gitignore, so your token never gets committed.
+# You can also skip the file and set a TORBOX_API_KEY environment variable
+# instead — the script checks that as a fallback.
+#
+# Used by: scripts/Custom_Torrent_TorBox_Streaming.lua
+
+api_key=YOUR_TOKEN_HERE

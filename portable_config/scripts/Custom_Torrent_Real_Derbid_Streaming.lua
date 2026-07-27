@@ -34,10 +34,40 @@ end
 
 local RD_API = load_rd_api_key()
 
+-- ===== PROVIDER GATE =====
+-- The TorBox streamer hooks the same "start-file" event on *.torrent and also
+-- calls mp.command("stop"), so with both live they fight over every file we
+-- open. script-opts/debrid.conf picks the winner; re-read on each use so
+-- switching from the menu takes effect without restarting mpv.
+local PROVIDER_CONF = mp.command_native({"expand-path", "~~/script-opts/debrid.conf"})
+
+local function active_provider()
+    -- get_property_native, NOT get_property: user-data nodes come back
+    -- JSON-encoded as a string, i.e. with literal quotes around the value, and
+    -- '"realdebrid"' never equals 'realdebrid'.
+    local p = mp.get_property_native("user-data/debrid/provider")
+    if type(p) == "string" and p ~= "" then return p end
+    local f = io.open(PROVIDER_CONF, "r")
+    if f then
+        for line in f:lines() do
+            local v = line:match("^%s*provider%s*=%s*(%S+)")
+            if v then f:close() return v:lower() end
+        end
+        f:close()
+    end
+    return "realdebrid"
+end
+
+local function is_active() return active_provider() == "realdebrid" end
+
 if RD_API == "" then
     msg.error("No Real-Debrid token. Add 'api_key=...' to script-opts/realdebrid.conf")
+    -- Only nag if Real-Debrid is actually the selected provider; someone running
+    -- TorBox shouldn't get an error popup about a service they aren't using.
     mp.add_timeout(1, function()
-        mp.osd_message("Real-Debrid: no API token set\nAdd api_key=... to script-opts/realdebrid.conf", 6)
+        if is_active() then
+            mp.osd_message("Real-Debrid: no API token set\nAdd api_key=... to script-opts/realdebrid.conf", 6)
+        end
     end)
 end
 
@@ -478,10 +508,11 @@ mp.add_hook("on_load", 50, function()
 end)
 
 mp.register_event("start-file", function()
+    if not is_active() then return end
     local path = mp.get_property("path", "")
-    if path:match("%.torrent$") then 
+    if path:match("%.torrent$") then
         mp.command("stop")
-        process(path) 
+        process(path)
     end
 end)
 
