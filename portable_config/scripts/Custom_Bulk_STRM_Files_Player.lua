@@ -5,9 +5,23 @@ local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 
 -- ===== CONFIGURATION =====
+-- Generated session playlists live in _cache/strmcache, not script-opts.
+-- script-opts is for configuration; dropping strm_playlist_<time>.m3u8 files in
+-- there buried the actual .conf files (same fix as the RD/TorBox streamers).
+local function ensure_dir(dir)
+    if utils.file_info and utils.file_info(dir) then return end
+    utils.subprocess({
+        args = {"powershell", "-NoProfile", "-NonInteractive", "-Command",
+            "New-Item -ItemType Directory -Force -Path '" .. dir .. "' > $null"},
+        cancellable = false, playback_only = false
+    })
+end
+
+local CACHE_DIR = mp.command_native({"expand-path", "~~/_cache/strmcache"})
+ensure_dir(CACHE_DIR)
+
 local function get_cache_dir()
-    local config_dir = mp.command_native({"expand-path", "~~/script-opts"})
-    return config_dir .. "/"
+    return CACHE_DIR .. "/"
 end
 
 local processing = false

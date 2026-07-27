@@ -38,7 +38,7 @@ It's a **portable build** — no installer, nothing written to your registry, no
 - [What's in the box](#whats-in-the-box)
 - [Requirements](#requirements)
 - [Setup](#setup)
-- [Real-Debrid setup](#real-debrid-setup)
+- [Debrid setup — Real-Debrid & TorBox](#debrid-setup--real-debrid--torbox)
 - [Streaming torrents & magnets](#streaming-torrents--magnets)
 - [`.strm` bulk playlists](#strm-bulk-playlists)
 - [Live chat overlay — Twitch & Kick](#live-chat-overlay--twitch--kick)
@@ -58,7 +58,8 @@ It's a **portable build** — no installer, nothing written to your registry, no
 
 | | Feature | Where it lives |
 |---|---|---|
-| 🧲 | Play `.torrent` files and magnet links via Real-Debrid — no download, no torrent client | `scripts/Custom_Torrent_*.lua` |
+| 🧲 | Play `.torrent` files and magnet links via **Real-Debrid or TorBox** — no download, no torrent client | `scripts/Custom_Torrent_*.lua` |
+| 🔀 | Switch debrid provider from the menu, persists across restarts | `scripts/Custom_Debrid_Provider.lua` |
 | 💬 | Live Twitch **and** Kick chat rendered *inside* mpv, with animated 7TV/BTTV/FFZ emotes | `scripts/twitch_chat/` |
 | 🔍 | Real-time neural upscaling — Real-ESRGAN, AnimeJaNai, Real-CUGAN, ArtCNN | `vs/Upscale/` |
 | 🎞️ | Real-time frame interpolation — RIFE 4.6 / 4.25 / 4.26, 2× and 3× | `vs/FrameInterpolation/` |
@@ -83,7 +84,7 @@ It's a **portable build** — no installer, nothing written to your registry, no
 | **AI upscaling + RIFE** | **NVIDIA only**, RTX 20-series or newer. The `.vpy` presets use TensorRT. |
 | **VRAM** | 6 GB minimum for 1080p→4K ESRGAN, 8 GB+ comfortable |
 | **RTX VSR / True HDR** | RTX 20-series+, enabled in the NVIDIA Control Panel |
-| **Real-Debrid** | A paid RD account + API token. Free accounts can't stream. |
+| **Torrent streaming** | A paid **Real-Debrid** *or* **TorBox** account + API token. Free tiers can't stream. |
 
 **On AMD or Intel?** Everything works except the `vs/` AI presets. Use the GLSL shaders instead — Anime4K AIO (`Ctrl+0`) is genuinely excellent and costs a fraction of the performance.
 
@@ -141,21 +142,52 @@ git clone https://github.com/Kristijan1001/MPVonCrack.git
 
 ---
 
-## Real-Debrid setup
+## Debrid setup — Real-Debrid & TorBox
 
-The torrent and magnet scripts do nothing without a token.
+Both services are supported. Set up whichever you have (or both, and switch between them).
 
-1. Log into Real-Debrid and open **https://real-debrid.com/apitoken**
+### Real-Debrid
+
+1. Log in and open **https://real-debrid.com/apitoken**
 2. Copy the token.
 3. In `portable_config/script-opts/`, copy `realdebrid.conf.example` → `realdebrid.conf`
-4. Set it:
-
-   ```ini
-   api_key=YOUR_TOKEN_HERE
-   ```
+4. Set `api_key=YOUR_TOKEN_HERE`
 5. Restart mpv.
 
-**The token is never stored in a `.lua` file.** Both scripts call `load_rd_api_key()`, which reads `script-opts/realdebrid.conf`, then falls back to a `REALDEBRID_API_KEY` environment variable, then gives up with an on-screen error. `realdebrid.conf` is gitignored, so you can fork this and push without leaking anything.
+### TorBox
+
+1. Log in and open **https://torbox.app/settings**
+2. Copy the API key.
+3. In `portable_config/script-opts/`, copy `torbox.conf.example` → `torbox.conf`
+4. Set `api_key=YOUR_TOKEN_HERE`
+5. Switch the provider (below), then restart mpv.
+
+### Switching between them
+
+`.torrent` files are handled by **one** provider at a time — whichever `script-opts/debrid.conf` names:
+
+```ini
+provider=realdebrid    # or: torbox
+```
+
+You don't have to edit that by hand:
+
+| | |
+|---|---|
+| `Ctrl+Shift+D` | Toggle Real-Debrid ⇄ TorBox |
+| Menu → Streaming → **Switch Provider** | Same thing |
+| Menu → Streaming → Use Real-Debrid / Use TorBox | Pick one directly |
+| Menu → Streaming → Show Current Provider | Check which is live |
+
+**The choice is written to disk the moment you switch**, so the next time you double-click a `.torrent` — even after a reboot — it uses the provider you picked. No "apply" step, no restart needed for the switch itself.
+
+> **Why a switch and not both at once?** Both streamers hook mpv's `start-file` event on `*.torrent` and both call `mp.command("stop")` to rebuild the playlist. Run them together and they race on every file you open — which is exactly why the TorBox script used to sit disabled in a folder called `Turned Off Scritps`. Each script now checks the setting before acting, so only the selected one responds.
+
+> **Magnet links always go through Real-Debrid**, whatever this is set to. That's the only magnet streamer here, so switching to TorBox doesn't take magnets away from you.
+
+### Tokens are never in the `.lua` files
+
+Each script calls a `load_*_api_key()` that reads its `script-opts/*.conf`, then falls back to an environment variable (`REALDEBRID_API_KEY` / `TORBOX_API_KEY`), then gives up with an on-screen error. Both conf files are gitignored, so you can fork this and push without leaking anything.
 
 > ⚠️ **If you ever paste a token directly into a `.lua` file and push it anywhere, revoke it.** Real-Debrid tokens don't expire on their own — go back to the API token page and generate a new one.
 
@@ -207,6 +239,22 @@ Because RD doesn't dedupe magnets by infohash, this script does extra work:
 | `Ctrl+Shift+M` | Paste & play magnet from clipboard |
 | `Ctrl+Shift+V` | Load clipboard URL (magnets, YouTube, anything) |
 | Menu → Streaming | Show / clear magnet cache |
+
+### TorBox — `Custom_Torrent_TorBox_Streaming.lua`
+
+Set `provider=torbox` (or hit `Ctrl+Shift+D`) and `.torrent` files go through TorBox instead. Same workflow: double-click a torrent, the whole folder becomes a playlist.
+
+It uploads the torrent via `torrents/createtorrent`, polls `torrents/mylist` until TorBox reports it cached, and resolves each file through `torrents/requestdl` at playback time (with 3 retries). Playlist entries use a `torbox://<torrent_id>/<file_id>` virtual scheme so it never collides with the Real-Debrid hooks. Cache lives in `_cache/tbcache/`.
+
+**Fixed in v2.0** — the old v1.1 had two bugs that made it unusable for anything not already cached:
+
+- `sleep()` shelled out to `timeout`, which on Windows aborts with *"Input redirection is not supported"* the moment stdin isn't a console — which is always, under mpv. **Every retry delay was silently a no-op.** Now uses PowerShell `Start-Sleep`.
+- The readiness poll ran 10 times at 1 second. That only ever worked for torrents TorBox already had; anything it needed to actually fetch failed after 10 seconds. Now polls for ~5 minutes, shows live `Caching on TorBox… 47% (12 seeders)` progress, and bails immediately on genuinely fatal states (`error`, `stalled`, `missingFiles`) instead of waiting them out.
+
+| Key | Action |
+|---|---|
+| `Ctrl+Shift+D` | Switch provider |
+| Menu → Streaming | Show / clear TorBox cache |
 
 ### Scroll-wheel navigation
 
@@ -603,6 +651,7 @@ Everything below is also in the **right-click menu**, organised into submenus. I
 | `,` / `.` (menu → NVIDIA) | RTX VSR / RTX True HDR |
 | `Alt+Wheel` | Cursor-centric zoom |
 | `Alt+Left drag` | Pan image |
+| `Ctrl+Shift+D` | Switch debrid provider (Real-Debrid ⇄ TorBox) |
 | `Ctrl+Shift+F8` | Add torrent folder to RD cloud |
 | `Ctrl+Shift+Alt+Z` | Clear RD cache |
 
@@ -630,14 +679,18 @@ MPVonCrack/
     ├── fonts/                         LXGW WenKai Mono, Material Icons, uosc textures
     │
     ├── script-opts/
+    │   ├── debrid.conf                Which provider handles .torrent files
     │   ├── realdebrid.conf.example    ← copy to realdebrid.conf, add your token
+    │   ├── torbox.conf.example        ← copy to torbox.conf, add your token
     │   ├── twitch_chat.conf           Chat overlay settings
     │   └── mpv360.conf                VR / 360 settings
     │
     ├── scripts/
     │   ├── uosc/                              The UI
     │   ├── twitch_chat/                       Live chat (main.lua + chat_render.py)
+    │   ├── Custom_Debrid_Provider.lua                 RD ⇄ TorBox switch
     │   ├── Custom_Torrent_Real_Derbid_Streaming.lua   .torrent → Real-Debrid
+    │   ├── Custom_Torrent_TorBox_Streaming.lua        .torrent → TorBox
     │   ├── Custom_Torrent_Magnet_Streaming.lua        magnet → Real-Debrid
     │   ├── Custom_Torrent_Unified_Navigation.lua      wheel nav + header skipping
     │   ├── Custom_Bulk_STRM_Files_Player.lua          .strm playlists
@@ -699,6 +752,12 @@ Expired RD links. v21 recovers automatically — give it a moment. If it persist
 
 **A magnet sits at "Fetching metadata… (0 seeders)"**
 Dead magnet. No seeders means Real-Debrid can't cache it either. That's the seeder counter doing its job.
+
+**I switched to TorBox but torrents still go to Real-Debrid (or nothing happens)**
+Check Menu → Streaming → **Show Current Provider**. If it disagrees with `script-opts/debrid.conf`, the conf wasn't writable — check file permissions. Also confirm `torbox.conf` exists and isn't still `YOUR_TOKEN_HERE`.
+
+**TorBox says "still caching - skipping"**
+TorBox didn't finish caching within ~5 minutes. The torrent stays on your TorBox account and keeps downloading — reopen it in a few minutes and it'll be instant. Raise `POLL_MAX` in the script if you want it to wait longer.
 
 **Chat overlay doesn't show**
 Menu → Live Chat → **Show Status**. Usually mpv just needs a restart. Check the `error.log` path that Status prints.
