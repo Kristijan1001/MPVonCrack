@@ -278,6 +278,21 @@ local function start(channel, platform)
     mp.osd_message(label .. " chat: " .. channel, 2)
 end
 
+-- Is what we're playing plausibly a Twitch/Kick stream at all? This decides
+-- whether a failed channel detection is worth reporting.
+local function looks_like_stream()
+    for _, prop in ipairs({ "path", "stream-open-filename", "filename", "media-title" }) do
+        local v = mp.get_property(prop)
+        if v then
+            v = v:lower()
+            if v:find("twitch%.tv") or v:find("kick%.com") or v:find("ttvnw%.net") then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 local function refresh()
     if auto then show = true end
     local ch, platform = detect_channel()
@@ -285,7 +300,15 @@ local function refresh()
         start(ch, platform)
     else
         stop()
-        if show and not ch then
+        -- Only complain when this really IS a Twitch/Kick stream whose channel we
+        -- couldn't work out - that's a genuine problem worth surfacing.
+        --
+        -- Anything else has no channel to find and nothing to report. auto-show
+        -- sets show=true for every file, so without this check the popup fired on
+        -- ordinary videos: torrents, debrid links (torbox:// , real-debrid.com/d/)
+        -- and local files, complaining it couldn't find a Twitch channel in
+        -- something that was never a stream.
+        if show and not ch and looks_like_stream() then
             local hint = (mp.get_property("path") or "?"):sub(1, 64)
             mp.osd_message("Live chat: no twitch.tv/kick.com channel detected from\n" .. hint ..
                 "\n(set channel= in twitch_chat.conf, or script-message twitch-chat-channel <name>)", 5)
