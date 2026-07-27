@@ -199,10 +199,10 @@ mp.add_hook("on_load", 90, function()
 
     local title = mp.get_property("playlist/current/title", "")
 
-    if path == "null://header" then
-        mp.command("playlist-next")
-        return
-    end
+    -- Header skipping is owned by Custom_Torrent_Unified_Navigation.lua. The
+    -- branch that used to be here was dead code anyway: the managed_urls
+    -- whitelist check above returns first, and "null://header" is never added
+    -- to that whitelist.
 
     if title and (title:match("^├─") or title:match("^└─")) then
         local clean = title:gsub("^%s*[├└]─%s*", "")

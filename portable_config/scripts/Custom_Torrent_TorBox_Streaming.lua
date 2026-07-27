@@ -279,17 +279,30 @@ local function create_stable_playlist()
 
     mp.commandv("loadlist", m3u_path, "replace")
 
-    mp.add_timeout(0.1, function()
+    -- Jump to the FILE under the header we opened, not the header itself.
+    -- Landing on the header makes the auto-skip fire again, which reloads and
+    -- re-resolves a link for nothing. Run it synchronously first so mpv doesn't
+    -- briefly start playing playlist entry 0; the timeout is just a fallback in
+    -- case the playlist property isn't populated yet.
+    local function seek_to_target()
         local pl = mp.get_property_native("playlist")
+        if not pl or #pl == 0 then return false end
         local target_name = get_filename(torrent_data.initial_target):gsub("%.torrent$", "")
         for i, item in ipairs(pl) do
             if item.title and item.title == target_name then
-                mp.set_property("playlist-pos", i - 1)
+                -- pl is 1-based: header sits at playlist-pos i-1, so its first
+                -- file is at playlist-pos i.
+                mp.set_property("playlist-pos", pl[i + 1] and i or (i - 1))
                 mp.set_property("pause", "no")
-                break
+                return true
             end
         end
-    end)
+        return false
+    end
+
+    if not seek_to_target() then
+        mp.add_timeout(0.1, seek_to_target)
+    end
 end
 
 -- ===== CORE PROCESS =====
@@ -411,10 +424,10 @@ end
 mp.add_hook("on_load", 50, function()
     local path = mp.get_property("path", "")
 
-    -- Only claim our own virtual scheme. "null://header" is shared with the
-    -- .strm handler, so skip headers regardless of provider.
-    if path == "null://header" then mp.command("playlist-next"); return end
-
+    -- "null://header" is deliberately NOT handled here. Header skipping is owned
+    -- solely by Custom_Torrent_Unified_Navigation.lua - when this script and the
+    -- Real-Debrid one both handled it, each header fired two playlist-next calls
+    -- and opening the first torrent in a folder played the second one's file.
     local tid, fid = path:match("torbox://(%d+)/(%d+)")
     if not (tid and fid) then return end
 

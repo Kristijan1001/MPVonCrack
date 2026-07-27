@@ -53,6 +53,25 @@ local function unified_next()
     mp.commandv("playlist-next")
 end
 
+-- ===== HEADER AUTO-SKIP (single owner) =====
+-- Playlists built by the Real-Debrid, TorBox and .strm players all use
+-- "null://header" rows as folder titles, which must be skipped on load.
+--
+-- This lives HERE, in exactly one script, on purpose. It used to be duplicated
+-- in the Real-Debrid and TorBox streamers, and once both were enabled at the
+-- same time BOTH called playlist-next for the same header - so every header
+-- skipped TWO entries instead of one, and opening the first torrent in a folder
+-- played the second one's file. This script is always loaded and is
+-- provider-independent, so it's the right place for it.
+--
+-- Note: the magnet streamer uses its own "magnet-rd://header" scheme and skips
+-- those itself; it has only ever had one handler, so it stays as it is.
+mp.add_hook("on_load", 50, function()
+    if mp.get_property("path", "") == "null://header" then
+        mp.command("playlist-next")
+    end
+end)
+
 -- Register keybinds
 mp.register_script_message("unified-prev", unified_prev)
 mp.register_script_message("unified-next", unified_next)
