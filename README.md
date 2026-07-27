@@ -392,23 +392,54 @@ All of these are **already in the download**. Nothing to fetch.
 
 **Picking one:** anime → AnimeJaNai V3 L3. Anime that's noisy or a bad rip → CUGAN with denoise. Live action → RealESRGAN x2plus/x4plus. Anything that stutters → drop to L1/L2, or use GLSL shaders instead.
 
-### Key `.vpy` options you'll actually want to change
+### Tuning a preset
 
-Open any file in `vs/Upscale/` — the tunables are at the top:
+Every `.vpy` in `vs/Upscale/` has its settings in a plain block at the top. Open one in Notepad, change a number, save, restart mpv. There's nothing to compile.
+
+#### `H_Pre` — the performance dial
+
+**This is the one you'll actually change.** The frame is downscaled to this height *before* the network sees it, and the network then upscales it back up.
 
 ```python
-H_Pre  = 720     # pre-downscale source to this height before the model runs.
-                 # THE performance dial. 720 is safe; 1080 is much heavier.
-Lt_Hd  = False   # True = also process sources above 720p
-Model  = "animejanaiV3-HD-L3.onnx"
-Gpu    = 0       # GPU index (0 = first)
-Gpu_T  = 2       # GPU threads, 1–4. Higher = faster but more VRAM
-St_Eng = False   # static engine — see above
-Ws_Size= 0       # VRAM cap in MiB. 0 = unlimited
-H_Max  = 1440    # output height cap — SET THIS TO YOUR MONITOR HEIGHT
+H_Pre = 720
 ```
 
-CUGAN also has `Nr_Lv` (denoise level `-1`–`3`, `-1` = off) and `Sharp_Lv` (`0.0`–`2.0`).
+Cost scales with pixel count, not height — so halving the height quarters the work. Going `1080` → `720` leaves the GPU doing about **45%** as much; `720` → `540` roughly halves it again. The catch is you're throwing away real source detail before the model ever sees it, and the network invents it back, which is not the same thing.
+
+- **Dropping frames or fans screaming?** Lower it. `720` → `540` buys a lot.
+- **GPU coasting?** Raise it to `1080`. Noticeably sharper on good sources.
+- Anime is forgiving here (flat colour, hard lines). Live action is not.
+
+#### `H_Max` — set this once, to your monitor
+
+```python
+H_Max = 1440
+```
+
+Caps output height. Rendering 4K for a 1440p screen is pure waste. **Set it to your actual screen height** — 1080, 1440, 2160 — and forget it.
+
+#### The rest
+
+| Option | What it does | When to touch it |
+|---|---|---|
+| `Model` | Which `.onnx` in `vs-plugins/models/` to run | Swapping in a different model — filename must match exactly |
+| `Lt_Hd` | `False` squashes anything above 720p first. `True` raises the working resolution to 1080p | Turn `True` for HD live-action where pre-squashing is visibly destructive. Costs roughly 2× |
+| `Gpu_T` | How many frames the GPU chews on at once | `2` is right for most cards. `3`–`4` if you have VRAM spare and still drop frames. Above 4 does nothing |
+| `St_Eng` | `False` = one engine handling any resolution. `True` = locked to a single resolution: faster, less VRAM, but rebuilds whenever the source resolution changes | Turn `True` if you're VRAM-starved and mostly watch one resolution |
+| `Ws_Size` | VRAM ceiling in MiB while building the engine. `0` = no limit | Set `2048`–`4096` if the engine build runs you out of memory, or you're gaming on the same GPU |
+| `Gpu` | Which GPU, `0` = first | Only if you have more than one |
+| `Lk_Fmt` | Forces 8-bit 4:2:0 | Leave `False`. `True` only for a compatibility problem — it throws away 10-bit precision |
+
+#### CUGAN only
+
+```python
+Nr_Lv    = -1    # denoise: -1 off, 0, 1, 2, 3
+Sharp_Lv = 1.0   # 0.0 - 2.0
+```
+
+`Nr_Lv` is the whole reason to pick CUGAN. Compressed or noisy anime rips want `3`. **Clean Blu-ray sources want `-1`** — denoising something that isn't noisy just smears detail away. `Sharp_Lv` above about `1.3` starts to look crunchy and haloed.
+
+---
 
 ### Frame interpolation — `vs/FrameInterpolation/`
 
@@ -423,18 +454,23 @@ RIFE turns 24fps into 48/60/72fps by **generating** intermediate frames from opt
 | `RIFE_HEAVY_4_26` | RIFE 4.26 | 2× |
 | `RIFE_HEAVY_x3_4_26` | RIFE 4.26 | 3× |
 
-```python
-H_Pre   = 1440   # pre-downscale height — set to your monitor height
-Model   = 4251   # 46 | 4251 | 426 | 4262
-Fps_Num = 2      # multiplier (2 = double framerate)
-Sc_Mode = 1      # scene-change detection: 0 off, 1/2 on.
-                 # LEAVE THIS ON — without it, cuts produce smeared garbage frames
-Gpu_T   = 2      # GPU threads
-```
+#### Tuning RIFE
 
-**VFR handling:** these presets detect variable-framerate sources and convert to CFR first, snapping to 23.976 / 29.97 / 59.94 where appropriate. RIFE on a VFR source without this judders badly.
+| Option | What it does | When to touch it |
+|---|---|---|
+| `Fps_Num` | The multiplier. `2` doubles the framerate (24 → 48), `3` triples it (24 → 72) | Match your monitor. 24fps content on a 144 Hz screen looks best at `3`; on a 60 Hz screen `2` is plenty, since anything above 60 gets thrown away |
+| `H_Pre` | Downscales before interpolating — the performance dial, same as upscaling | Set it to your monitor height. Lower it if you drop frames |
+| `Sc_Mode` | Scene-change detection | **Leave it at `1`.** With `0`, every hard cut gets a frame interpolated *between two unrelated shots* — a smeared mess for a fraction of a second, on every cut in the film |
+| `Model` | `46` (4.6), `4251` (4.25 Lite), `426` / `4262` (4.26) | Newer isn't automatically better. 4.6 is the fast, reliable default; the Lite model is cheaper; 4.26 is slowest and only sometimes cleaner |
+| `Gpu_T` | Frames in flight on the GPU | `2` suits most cards; raise to `3` if you have VRAM spare and still drop frames |
 
-**Note:** `mpv.conf` sets `video-sync = display-resample` and `interpolation = yes`, and `profiles.conf` has a `[vsync_auto]` profile that automatically disables mpv's own interpolation when container fps is above 32 or playback speed isn't 1×. That's there so mpv's interpolation and RIFE don't fight each other.
+**Interpolation is much heavier than it looks.** It runs on *every* frame and has to hit your target framerate in real time — if it can't, you get stutter that's worse than not using it at all. If a preset can't keep up, drop `H_Pre` first, then `Fps_Num` from 3 to 2, then move to the Lite model.
+
+**A warning about the look.** RIFE gives you the "soap opera effect". On animation it usually looks great; on 24fps live-action film a lot of people hate it. That's taste, not a bug.
+
+**VFR sources** are detected and converted to constant framerate first, snapping to 23.976 / 29.97 / 59.94. Without that step RIFE judders badly on variable-framerate files.
+
+> `mpv.conf` sets `video-sync = display-resample` with `interpolation = yes`, and the `[vsync_auto]` profile in `profiles.conf` automatically turns mpv's own interpolation off above 32fps or at non-1× speed — so mpv and RIFE don't fight each other. Leave that alone.
 
 ### Cleaning presets — `vs/Cleaning/`
 
