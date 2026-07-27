@@ -105,10 +105,6 @@ That's the whole install. Playback, shaders, the chat overlay, PiP and VR work s
 
 **If you cloned the repo instead**, grab `MPVonCrack-vsmlrt-cuda.7z.001/.002` from [Releases](https://github.com/Kristijan1001/MPVonCrack/releases/latest), extract, and drop the `vsmlrt-cuda` folder into `vs-plugins/`. That's the only piece the repo doesn't carry.
 
-### Already have your own mpv?
-
-Take just `portable_config/` and drop it into your install, replacing yours. You'll need your own models and CUDA runtime.
-
 ---
 
 ## Debrid setup — Real-Debrid & TorBox
