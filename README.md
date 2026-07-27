@@ -12,29 +12,23 @@ Built on [hooke007's mpv_PlayKit / MPV_lazy](https://github.com/hooke007/MPV_laz
 
 ## ⬇️ Download
 
-**The entire player is in this repo** — `mpv.exe`, `yt-dlp.exe`, the bundled Python, every plugin, every shader, every script, and all 56 AI models. No installer, nothing written to your registry, no dependencies to chase. It's fully portable; a USB stick is fine.
+The **entire player** lives here — `mpv.exe`, `yt-dlp.exe`, a bundled Python, every plugin, shader and script, and all 56 AI models. No installer, nothing written to your registry, nothing to install alongside it. Fully portable; a USB stick is fine.
 
-Pick one:
+Two ways to get it:
 
-### Option A — everything, one download *(easiest)*
+### 🟢 [Download the full build →](https://github.com/Kristijan1001/MPVonCrack/releases/latest)
 
-### **[→ MPVonCrack-FULL ←](https://github.com/Kristijan1001/MPVonCrack/releases/latest)**
+Everything, including the NVIDIA CUDA runtime. Grab **all three `MPVonCrack-FULL` parts into one folder**, right-click the `.001`, extract, run `mpv.exe`. AI upscaling works immediately, nothing else to set up.
 
-The complete package **including the NVIDIA CUDA/TensorRT runtime**. Download all parts, extract, run `mpv.exe`. Nothing else to do — AI upscaling works immediately.
+*(It's in parts because GitHub caps one file at 2 GB — 7-Zip rejoins them on its own. Windows 11 opens `.7z` natively; otherwise get [7-Zip](https://www.7-zip.org/).)*
 
-It's split into `.7z.001`, `.7z.002` … because GitHub caps a single release file at 2 GB. **Download every part into the same folder**, then right-click the `.001` and extract — 7-Zip stitches them back together automatically. (Windows 11 opens `.7z` natively; otherwise grab [7-Zip](https://www.7-zip.org/).)
-
-### Option B — the repo, then add CUDA if you want it
-
-Clone or **Code → Download ZIP** this repo (~1.2 GB). That's the whole player minus the CUDA runtime.
+### ⚪ Or clone the repo *(~1.2 GB)*
 
 ```bash
 git clone https://github.com/Kristijan1001/MPVonCrack.git
 ```
 
-Playback, the right-click menu, GLSL shaders, torrent/magnet streaming, the Twitch/Kick chat overlay, PiP and VR **all work immediately**. Only the neural upscaling and RIFE interpolation need CUDA — grab **`MPVonCrack-vsmlrt-cuda.7z.001/.002`** from the [releases page](https://github.com/Kristijan1001/MPVonCrack/releases/latest), extract, and drop the `vsmlrt-cuda` folder into `vs-plugins/`.
-
-> **Heads up:** the first time you press an AI preset, mpv will look frozen for a few minutes while it builds itself a TensorRT engine for your GPU. That happens once per preset, then it's instant forever.
+Same player, minus the CUDA runtime. Everything works except neural upscaling and RIFE — for those, add the `MPVonCrack-vsmlrt-cuda` parts from [Releases](https://github.com/Kristijan1001/MPVonCrack/releases/latest) as described in [Setup](#setup).
 
 ---
 
@@ -56,6 +50,7 @@ Playback, the right-click menu, GLSL shaders, torrent/magnet streaming, the Twit
 - [File map](#file-map)
 - [Troubleshooting](#troubleshooting)
 - [Credits](#credits)
+- [A note on the config](#a-note-on-the-config)
 
 ---
 
@@ -97,13 +92,22 @@ Playback, the right-click menu, GLSL shaders, torrent/magnet streaming, the Twit
 
 ## Setup
 
-1. **Extract it anywhere** and run `mpv.exe`. A USB stick is fine — it's fully portable.
-2. **Right-click** for the menu. Every preset lives there.
-3. Want torrent streaming? [Add your Real-Debrid or TorBox token.](#debrid-setup--real-debrid--torbox)
+1. **Extract anywhere** and run `mpv.exe`.
+2. **Right-click** for the menu — every preset lives there.
+3. For torrent streaming, [add a Real-Debrid or TorBox token](#debrid-setup--real-debrid--torbox).
 
-That's the whole install. Playback, shaders, the chat overlay, PiP and VR work straight away; AI upscaling works too if you took the FULL download.
+That's it. Playback, GLSL shaders, live chat, PiP and VR all work immediately.
 
-**If you cloned the repo instead**, grab `MPVonCrack-vsmlrt-cuda.7z.001/.002` from [Releases](https://github.com/Kristijan1001/MPVonCrack/releases/latest), extract, and drop the `vsmlrt-cuda` folder into `vs-plugins/`. That's the only piece the repo doesn't carry.
+### Adding the CUDA runtime
+
+Only needed if you cloned the repo instead of taking the full build, and only if you want the neural upscaling or RIFE interpolation.
+
+1. Download **`MPVonCrack-vsmlrt-cuda.7z.001`** and **`.002`** from [Releases](https://github.com/Kristijan1001/MPVonCrack/releases/latest) into the same folder.
+2. Right-click the `.001` and extract.
+3. Move the `vsmlrt-cuda` folder into `vs-plugins/`, so you have `vs-plugins/vsmlrt-cuda/nvinfer_10.dll`.
+4. Restart mpv and press `F1` on a video.
+
+> The first press of any AI preset looks like a freeze — mpv is compiling a TensorRT engine for your specific GPU. It happens once per preset, then it's instant forever.
 
 ---
 
@@ -146,7 +150,7 @@ You don't have to edit that by hand:
 
 **The choice is written to disk the moment you switch**, so the next time you double-click a `.torrent` — even after a reboot — it uses the provider you picked. No "apply" step, no restart needed for the switch itself.
 
-> **Why a switch and not both at once?** Both streamers hook mpv's `start-file` event on `*.torrent` and both call `mp.command("stop")` to rebuild the playlist. Run them together and they race on every file you open — which is exactly why the TorBox script used to sit disabled in a folder called `Turned Off Scritps`. Each script now checks the setting before acting, so only the selected one responds.
+> Only one provider can be active at a time — running both at once makes them fight over the same `.torrent`.
 
 > **Magnet links always go through Real-Debrid**, whatever this is set to. That's the only magnet streamer here, so switching to TorBox doesn't take magnets away from you.
 
@@ -211,10 +215,7 @@ Set `provider=torbox` (or hit `Ctrl+Shift+D`) and `.torrent` files go through To
 
 It uploads the torrent via `torrents/createtorrent`, polls `torrents/mylist` until TorBox reports it cached, and resolves each file through `torrents/requestdl` at playback time (with 3 retries). Playlist entries use a `torbox://<torrent_id>/<file_id>` virtual scheme so it never collides with the Real-Debrid hooks. Cache lives in `_cache/tbcache/`.
 
-**Fixed in v2.0** — the old v1.1 had two bugs that made it unusable for anything not already cached:
-
-- `sleep()` shelled out to `timeout`, which on Windows aborts with *"Input redirection is not supported"* the moment stdin isn't a console — which is always, under mpv. **Every retry delay was silently a no-op.** Now uses PowerShell `Start-Sleep`.
-- The readiness poll ran 10 times at 1 second. That only ever worked for torrents TorBox already had; anything it needed to actually fetch failed after 10 seconds. Now polls for ~5 minutes, shows live `Caching on TorBox… 47% (12 seeders)` progress, and bails immediately on genuinely fatal states (`error`, `stalled`, `missingFiles`) instead of waiting them out.
+If TorBox doesn't already have the torrent cached, it fetches it first — you get live `Caching on TorBox… 47% (12 seeders)` progress on screen, and it gives up quickly on dead torrents rather than hanging.
 
 | Key | Action |
 |---|---|
@@ -265,7 +266,7 @@ libass (mpv's subtitle renderer) **cannot inline images**. Any ASS-based chat ov
 
 So this doesn't use ASS. `chat_render.py` connects to chat, composites the whole visible chat column — bold coloured usernames, white outlined text, inline emote bitmaps — into a raw **BGRA** buffer with Pillow, and `main.lua` blits it with mpv's `overlay-add` (the same mechanism thumbfast uses for its thumbnails).
 
-Two hard-won details baked in:
+Two details that matter if you ever modify it:
 
 - **`overlay-add` with `bgra` expects *premultiplied* alpha.** Feeding straight alpha makes every semi-transparent emote edge glow magenta. Every RGB channel is multiplied by alpha before writing.
 - **Overwriting a `.bgra` file while mpv is reading it crashes the player.** Each frame is written to a fresh filename; only frame *n−2* is deleted.
@@ -632,7 +633,7 @@ MPVonCrack/
 ├── vs-plugins/
 │   ├── models/                    All 56 .onnx models (engines build here)
 │   ├── vstrt.dll  vsort.dll       TensorRT / ONNX Runtime backends
-│   └── vsmlrt-cuda/               ← you add this (see Setup step 2)
+│   └── vsmlrt-cuda/               NVIDIA CUDA/TensorRT runtime
 │
 └── portable_config/
     ├── mpv.conf                       Core config — gpu-next, hwdec, OSD, subs, screenshots
@@ -701,7 +702,9 @@ These fire on their own, no key needed:
 ## Troubleshooting
 
 **AI upscaling does nothing / errors out**
-Did you do [Setup step 2](#step-2--add-the-cuda-runtime-nvidia-ai-features-only)? Without `vs-plugins/vsmlrt-cuda/` the AI presets can't load. Also: are you on NVIDIA? Out of VRAM (lower `H_Pre`, or set `St_Eng = True` and cap `Ws_Size`)?
+First check you actually have the CUDA runtime: there should be a `vs-plugins/vsmlrt-cuda/` folder containing `nvinfer_10.dll`. If it's missing you took the repo download — grab the `vsmlrt-cuda` parts from [Releases](https://github.com/Kristijan1001/MPVonCrack/releases/latest) and drop that folder into `vs-plugins/`. See [Setup](#setup).
+
+If it *is* there: are you on an NVIDIA RTX card? And are you out of VRAM — lower `H_Pre`, or set `St_Eng = True` and cap `Ws_Size`.
 
 **mpv freezes the first time I press F1**
 It's compiling a TensorRT engine. Takes minutes. Once per preset. [Explanation.](#the-engine-files--why-the-first-run-is-slow)
@@ -710,7 +713,7 @@ It's compiling a TensorRT engine. Takes minutes. Once per preset. [Explanation.]
 Your GPU can't keep up. Lower `H_Pre`, drop to a Lite model, or use GLSL shaders (`Ctrl+0`) instead.
 
 **"Real-Debrid: no API token set"**
-`script-opts/realdebrid.conf` is missing or still says `YOUR_TOKEN_HERE`. See [Real-Debrid setup](#real-debrid-setup).
+`script-opts/realdebrid.conf` is missing or still says `YOUR_TOKEN_HERE`. See [Debrid setup](#debrid-setup--real-debrid--torbox).
 
 **A torrent double-click does nothing / `Unsupported URL: real-debrid.com/d/…`**
 Expired RD links. v21 recovers automatically — give it a moment. If it persists, `Ctrl+Shift+Alt+Z` to clear the cache and reopen.
