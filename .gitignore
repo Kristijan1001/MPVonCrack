@@ -1,0 +1,38 @@
+# ─── SECRETS — never commit ───────────────────────────────────────────────
+# Your Real-Debrid token lives here. The .example file is what ships.
+portable_config/script-opts/realdebrid.conf
+portable_config/script-opts/torbox.conf
+*.token
+.env
+
+# ─── Runtime state / caches ───────────────────────────────────────────────
+portable_config/_cache/
+portable_config/watch_later/
+portable_config/saved-props.json
+*.log
+
+# Real-Debrid / magnet caches + generated session playlists
+rd_torrent_cache.json
+magnet_rd_cache.json
+mpv_rd_session_*.m3u8
+strm_playlist_*.m3u8
+
+# ─── AI models & TensorRT engines ─────────────────────────────────────────
+# .engine files are compiled per GPU + driver + TensorRT version. They are
+# useless on anyone else's machine and are rebuilt automatically on first run.
+# .onnx weights are large and belong to their upstream authors — download them
+# from the sources listed in the README instead.
+*.engine
+*.onnx
+*.pth
+*.pt
+vs-plugins/
+vs-coreplugins/
+
+# ─── Junk ─────────────────────────────────────────────────────────────────
+portable_config/OLD/
+Thumbs.db
+desktop.ini
+.tmp.driveupload/
+__pycache__/
+*.pyc
