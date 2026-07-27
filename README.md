@@ -2,7 +2,11 @@
 
 **An mpv build that upscales with neural nets, interpolates to 120fps, streams torrents through Real-Debrid without downloading them, and renders live Twitch/Kick chat with real emotes inside the video window.**
 
-https://github.com/user-attachments/assets/e5842bfb-2501-4525-9f12-54b8a8405af3
+
+
+https://github.com/user-attachments/assets/597aaca8-65ea-48db-aa97-9795d12608a2
+
+
 
 Double-click a `.torrent` file → it plays. Paste a magnet → it plays. Open a Twitch link → chat appears next to the video. Hit `F1` → the anime you're watching gets run through a GAN in real time.
 
