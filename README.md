@@ -45,6 +45,7 @@ Same player, minus the CUDA runtime. Everything works except neural upscaling an
 - [Streaming torrents & magnets](#streaming-torrents--magnets)
 - [`.strm` bulk playlists](#strm-bulk-playlists)
 - [Live chat overlay — Twitch & Kick](#live-chat-overlay--twitch--kick)
+- [Twitch ads & Kick's fake seek bar](#twitch-ads--kicks-fake-seek-bar)
 - [AI upscaling & frame interpolation — how the models actually work](#ai-upscaling--frame-interpolation--how-the-models-actually-work)
 - [GLSL shaders](#glsl-shaders)
 - [NVIDIA RTX VSR & True HDR](#nvidia-rtx-vsr--true-hdr)
@@ -65,6 +66,8 @@ Same player, minus the CUDA runtime. Everything works except neural upscaling an
 | 🧲 | Play `.torrent` files and magnet links via **Real-Debrid or TorBox** — no download, no torrent client | `scripts/Custom_Torrent_*.lua` |
 | 🔀 | Switch debrid provider from the menu, persists across restarts | `scripts/Custom_Debrid_Provider.lua` |
 | 💬 | Live Twitch **and** Kick chat rendered *inside* mpv, with animated 7TV/BTTV/FFZ emotes | `scripts/twitch_chat/` |
+| 🚫 | **Twitch ads blocked** — server-side ad insertion defeated by swapping the master playlist | `scripts/Custom_Twitch_AdBlock.lua` |
+| ⏱️ | Kick live streams show a seek bar of what's *actually* buffered, not a fake 4-hour one | `scripts/Custom_Kick_Live_Timeline.lua` |
 | 🔍 | Real-time neural upscaling — Real-ESRGAN, AnimeJaNai, Real-CUGAN, ArtCNN | `vs/Upscale/` |
 | 🎞️ | Real-time frame interpolation — RIFE 4.6 / 4.25 / 4.26, 2× and 3× | `vs/FrameInterpolation/` |
 | ✨ | 30+ GLSL shaders — Anime4K, FSRCNNX, NNEDI3, AMD FSR, adaptive sharpening | `shaders/` |
@@ -323,6 +326,64 @@ Kick chat isn't IRC. The script resolves the chatroom via `kick.com/api/v2/chann
 | Menu → Live Chat → **Show Status** | Diagnostics — detected channel, whether frames are generating, dump of `error.log` |
 
 **If chat doesn't appear, run Show Status first.** Nine times out of ten mpv just needs a restart.
+
+---
+
+## Twitch ads & Kick's fake seek bar
+
+Two small scripts that fix two unrelated annoyances on the live-streaming side.
+
+### Twitch ads — `Custom_Twitch_AdBlock.lua`
+
+Twitch uses **server-side ad insertion**. The ad segments are stitched into the
+same HLS stream, served off the same CDN, with the same URL shape as the actual
+content. There is no separate ad request to block, which is why uBlock-style
+filter lists cannot touch Twitch ads — and why mpv, which has no DOM and no
+request filtering, could never have used them anyway.
+
+What does work is fetching a **different master playlist**: one requested
+without your auth token, from a region Twitch doesn't serve ads to. On load the
+script rewrites `twitch.tv/<channel>` to that playlist.
+
+**Your video does not go through the proxy.** Only the master playlist request
+does — one request, at stream start. Every variant playlist inside it points
+straight at Twitch's own CDN, so bandwidth, latency and quality are all
+Twitch-direct. The proxy sees your IP and which channel you opened, and nothing
+else; no credentials are ever sent, because the request being anonymous is the
+entire mechanism.
+
+It is always on — there is deliberately no off switch. If every proxy is
+unreachable it falls back to normal yt-dlp resolution rather than failing.
+
+> **Live rewind does not work on Twitch.** The proxy playlist is not seekable.
+> This is the accepted cost of blocking the ads. `force-seekable=yes` was tried
+> and removed: it flips the `seekable` property to yes, but real seeks still
+> fail, so all it did was make the UI lie.
+
+Proxies do die off periodically. If Twitch stops loading one day, that is the
+first thing to check — `script-opts/twitch_adblock.conf` has the list and a
+one-line curl test.
+
+### Kick's seek bar — `Custom_Kick_Live_Timeline.lua`
+
+Kick live streams arrived advertising the whole elapsed broadcast as a seekable
+duration. Measured on a live channel:
+
+| | duration in the bar | seekable | actually buffered |
+|---|---|---|---|
+| via ytdl_hook | **16928s — 4h42m** | yes | ~6.5s |
+| direct HLS | **15.7s** | no | ~5s |
+
+So uosc drew a four-and-a-half-hour scrubber over about six seconds of real
+data — drag anywhere else and nothing happened. The script opens Kick's HLS URL
+directly, so mpv reports only what it has really got.
+
+Live channels only. `kick.com/video/...` VODs, clips and browse pages are left
+alone, because there a full seekable timeline is correct.
+
+This is **not** an ad blocker, and Kick doesn't need one here: its live playlist
+carries no stitched ads that reach mpv. Kick does use SSAI, but on the
+web-player path, which yt-dlp doesn't go through.
 
 ---
 

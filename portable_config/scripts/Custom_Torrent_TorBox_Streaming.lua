@@ -90,8 +90,24 @@ local EXCLUDE_WORDS = {
 }
 
 -- How long to wait for TorBox to cache a torrent it doesn't already have.
-local POLL_INTERVAL = 2     -- seconds between status checks
-local POLL_MAX = 150        -- x2s = ~5 minutes before we give up on this torrent
+-- Only the torrent you actually opened deserves a long wait. The rest of the
+-- folder is being batch-added just to build the playlist, and blocking ~5min on
+-- each of those turned "open one episode" into a worst-case 45-minute freeze.
+local POLL_INTERVAL = 2       -- seconds between status checks
+local POLL_MAX_TARGET = 150   -- x2s = ~5 minutes for the torrent you opened
+local POLL_MAX_OTHER = 2      -- quick probe for the other torrents in the folder
+local POLL_MAX_UNREADABLE = 3 -- consecutive unusable responses before giving up
+
+-- Errors that will never succeed on retry. Without this, an oversized torrent
+-- was re-uploaded on every single launch just to be refused again.
+local function is_permanent_error(detail)
+    if not detail then return false end
+    local d = detail:lower()
+    return (d:find("larger than") ~= nil)
+        or (d:find("upgrade your plan") ~= nil)
+        or (d:find("plan") ~= nil and d:find("limit") ~= nil)
+        or (d:find("not allowed") ~= nil)
+end
 
 -- ===== CACHE =====
 -- Cache + temp session playlists live together in _cache/tbcache, matching the
@@ -153,10 +169,16 @@ local function get_file_hash(path)
     return path .. "_" .. tostring(size)
 end
 
+-- Sentinel for "TorBox permanently refused this one" - distinct from nil,
+-- which means "not seen yet, go ask".
+local REJECTED = {}
+
 local function get_cached_torrent(cache, t_path)
     local hash = get_file_hash(t_path)
-    if hash and cache[hash] then return cache[hash] end
-    return nil
+    local entry = hash and cache[hash]
+    if not entry then return nil end
+    if entry.rejected then return REJECTED, entry.rejected end
+    return entry
 end
 
 -- ===== HELPER FUNCTIONS =====
@@ -306,7 +328,7 @@ local function create_stable_playlist()
 end
 
 -- ===== CORE PROCESS =====
-local function process_torrent_with_api(t_path)
+local function process_torrent_with_api(t_path, is_target)
     msg.info("Processing torrent: " .. get_filename(t_path))
 
     local res = curl_multipart_upload(API_BASE .. "/torrents/createtorrent", t_path,
@@ -314,7 +336,14 @@ local function process_torrent_with_api(t_path)
     local json_res = res and utils.parse_json(res)
 
     if not json_res or not json_res.success then
-        msg.error("Upload failed: " .. (json_res and json_res.detail or "Unknown error"))
+        local detail = (json_res and json_res.detail) or "Unknown error"
+        msg.error("Upload failed: " .. detail)
+        -- Surface it on screen too. msg.error only reaches the log, and log-file
+        -- is normally off, so a refusal used to look exactly like a hang.
+        mp.osd_message("TorBox refused " .. get_filename(t_path) .. "\n" .. detail, 5)
+        if is_permanent_error(detail) then
+            return nil, detail   -- caller caches this so we stop re-asking
+        end
         return nil
     end
 
@@ -327,12 +356,16 @@ local function process_torrent_with_api(t_path)
     -- Poll until TorBox reports the torrent is usable. A torrent already cached
     -- on TorBox satisfies this on the first pass; one it has to fetch shows live
     -- progress instead of silently timing out after 10 seconds.
-    for i = 1, POLL_MAX do
+    local poll_max = is_target and POLL_MAX_TARGET or POLL_MAX_OTHER
+    local unreadable = 0
+
+    for i = 1, poll_max do
         local info_res = curl_request(API_BASE .. "/torrents/mylist?id=" .. tid, "GET", nil,
             {Authorization = "Bearer " .. TB_API})
         local info_json = info_res and utils.parse_json(info_res)
 
         if info_json and info_json.success and info_json.data then
+            unreadable = 0
             local t_data = info_json.data
             if t_data.download_finished or t_data.download_state == "cached" or t_data.download_present then
                 files = t_data.files
@@ -351,14 +384,30 @@ local function process_torrent_with_api(t_path)
             local seeds = tonumber(t_data.seeds) or 0
             mp.osd_message(string.format("Caching on TorBox... %d%% (%d seeders)\n%s",
                 pct, seeds, short_name), POLL_INTERVAL + 1)
+        else
+            -- Unparseable body, or success=false. The old loop treated this the
+            -- same as "still downloading" and ground through all 150 iterations
+            -- in total silence - minutes of no output and no progress.
+            unreadable = unreadable + 1
+            if unreadable >= POLL_MAX_UNREADABLE then
+                msg.error("No usable status from TorBox after " .. unreadable ..
+                          " tries: " .. short_name)
+                mp.osd_message("TorBox: no status for " .. short_name, 4)
+                return nil
+            end
         end
 
-        if i < POLL_MAX then sleep(POLL_INTERVAL) end
+        if i < poll_max then sleep(POLL_INTERVAL) end
     end
 
     if not files then
-        msg.warn("Timed out waiting for TorBox to cache: " .. short_name)
-        mp.osd_message("TorBox still caching - skipping " .. short_name, 4)
+        if is_target then
+            msg.warn("Timed out waiting for TorBox to cache: " .. short_name)
+            mp.osd_message("TorBox still caching - skipping " .. short_name, 4)
+        else
+            -- Not the file you opened; it can join the playlist next time.
+            msg.info("Not cached yet, skipping for now: " .. short_name)
+        end
         return nil
     end
 
@@ -390,17 +439,34 @@ local function process(start_path)
     msg.info("Processing " .. #t_files .. " torrents...")
     mp.osd_message("Processing torrents with TorBox...", 30)
 
+    local target_name = get_filename(start_path)
+    local rejected, rejected_why = 0, nil
+
     for _, t_path in ipairs(t_files) do
-        local torrent_info = get_cached_torrent(cache, t_path)
-        if torrent_info then
+        local torrent_info, why = get_cached_torrent(cache, t_path)
+        if torrent_info == REJECTED then
+            -- Refused by TorBox on an earlier run. Don't spend a round trip
+            -- re-learning that on every launch.
+            rejected, rejected_why = rejected + 1, why
+            msg.info("Skipping previously refused torrent: " .. get_filename(t_path))
+        elseif torrent_info then
             table.insert(torrent_data.all_torrents, torrent_info)
         else
-            torrent_info = process_torrent_with_api(t_path)
+            local reject_reason
+            torrent_info, reject_reason =
+                process_torrent_with_api(t_path, get_filename(t_path) == target_name)
             if torrent_info then
                 table.insert(torrent_data.all_torrents, torrent_info)
                 local hash = get_file_hash(t_path)
                 if hash then
                     cache[hash] = torrent_info
+                    needs_save = true
+                end
+            elseif reject_reason then
+                rejected, rejected_why = rejected + 1, reject_reason
+                local hash = get_file_hash(t_path)
+                if hash then
+                    cache[hash] = {rejected = reject_reason}
                     needs_save = true
                 end
             end
@@ -410,7 +476,12 @@ local function process(start_path)
     if needs_save then save_cache(cache) end
 
     if #torrent_data.all_torrents == 0 then
-        mp.osd_message("TorBox: nothing playable found", 4)
+        if rejected > 0 then
+            mp.osd_message("TorBox refused all " .. rejected .. " torrent(s) here:\n" ..
+                           (rejected_why or "see log"), 6)
+        else
+            mp.osd_message("TorBox: nothing playable found", 4)
+        end
         torrent_data.processing = false
         return
     end
